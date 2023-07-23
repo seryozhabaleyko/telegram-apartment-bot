@@ -28,6 +28,8 @@ export class AppService {
                     '.list-simple__output li.announcement-container',
                 );
 
+                const dbApartments: string[] = await db.getData('/apartments');
+
                 const apartments: string[] = [];
 
                 for (const element of elements) {
@@ -36,20 +38,18 @@ export class AppService {
                         (el) => el.getAttribute('href'),
                     );
 
-                    if (!href) {
-                        return;
+                    if (href && !dbApartments.includes(href)) {
+                        apartments.push(href);
+                        ctx.reply(`https://www.bazaraki.com${href}`);
                     }
-
-                    apartments.push(href);
-
-                    // ctx.reply(`https://www.bazaraki.com${href}`);
+                    break;
                 }
 
-                db.push('/apartments', apartments);
+                if (apartments.length > 0) {
+                    db.push('/apartments', apartments);
+                }
 
                 await browser.close();
-
-                //return ctx.reply('completed.end');
             })();
         });
 
