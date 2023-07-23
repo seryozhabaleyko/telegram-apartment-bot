@@ -4,13 +4,6 @@ import { Telegraf, Context } from 'telegraf';
 import { chromium } from 'playwright';
 import { JsonDB, Config } from 'node-json-db';
 
-interface Article {
-    title: string;
-    date: string;
-}
-
-const db = new JsonDB(new Config('db', true, false, '/'));
-
 @Injectable()
 export class AppService {
     private readonly bot: Telegraf<Context>;
@@ -20,6 +13,8 @@ export class AppService {
             this.configService.get('TELEGRAM_BOT_TOKEN'),
         );
 
+        const db = new JsonDB(new Config('db', true, false, '/'));
+
         this.bot.command('start', (ctx) => {
             (async () => {
                 const browser = await chromium.launch({
@@ -28,28 +23,34 @@ export class AppService {
 
                 const context = await browser.newContext();
                 const page = await context.newPage();
-                await page.goto('https://web.dev/blog');
-                const articles = await page.$$('article');
+                await page.goto(this.configService.get('URL'));
+                const elements = await page.$$(
+                    '.list-simple__output li.announcement-container',
+                );
 
-                for (const article of articles) {
-                    const item: Article = {
-                        title: await article.$eval(
-                            'h2 > a',
-                            (el) => el.textContent,
-                        ),
-                        date: await article.$eval(
-                            'time',
-                            (el) => el.textContent,
-                        ),
-                    };
+                const apartments: string[] = [];
 
-                    db.push('/articles[]', item);
+                for (const element of elements) {
+                    const href = await element.$eval(
+                        'a.announcement-block__title',
+                        (el) => el.getAttribute('href'),
+                    );
+
+                    if (!href) {
+                        return;
+                    }
+
+                    apartments.push(href);
+
+                    // ctx.reply(`https://www.bazaraki.com${href}`);
                 }
 
-                await browser.close();
-            })();
+                db.push('/apartments', apartments);
 
-            return ctx.reply('completed');
+                await browser.close();
+
+                //return ctx.reply('completed.end');
+            })();
         });
 
         this.bot.launch();
